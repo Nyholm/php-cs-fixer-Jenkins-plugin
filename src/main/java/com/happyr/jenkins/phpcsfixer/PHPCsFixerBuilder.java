@@ -35,16 +35,20 @@ import java.io.File;
  *
  * <p>
  * When a build is performed, the {@link #perform(AbstractBuild, Launcher, BuildListener)}
- * method will be invoked. 
+ * method will be invoked.
  *
  * @author Kohsuke Kawaguchi
  */
 public class PHPCsFixerBuilder extends Builder {
 
+    /**
+     * The parameters for this project
+     */
     private final String projectParameters;
 
-    private Launcher launcher;
-    private EnvVars environment;
+    /**
+     * The working dir
+     */
     private FilePath workingDir;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
@@ -63,20 +67,19 @@ public class PHPCsFixerBuilder extends Builder {
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         // This is where you 'build' the project.
         ArgumentListBuilder args = new ArgumentListBuilder();
-        environment = build.getEnvironment(listener);
+        EnvVars env = build.getEnvironment(listener);
         workingDir = build.getModuleRoot();
-        this.launcher = launcher;
         ByteArrayOutputStream2 output =new ByteArrayOutputStream2();
 
         //prepare the arguments for running the command
-        prepareCommand(args, output);
+        prepareCommand(args, launcher, env);
         listener.getLogger().println("Starting to run php-cs-fixer");
         final long startTime = System.currentTimeMillis();
         try {
             ConsoleAnnotator console = new ConsoleAnnotator(listener.getLogger(), build.getCharset());
             int result;
             try {
-                ArrayList<String> files = getListOfPHPFiles();
+                ArrayList<String> files = getListOfPHPFiles(launcher, env);
                 ArgumentListBuilder singleFileArgs;
 
                 // for each changed file
@@ -85,7 +88,7 @@ public class PHPCsFixerBuilder extends Builder {
                     singleFileArgs = args.clone();
                     singleFileArgs.add(file);
 
-                    result = runCommand(singleFileArgs, console);
+                    result = runCommand(singleFileArgs, launcher, env, console);
 
                     if (result != 0) {
                         listener.finished(Result.ABORTED);
@@ -116,15 +119,17 @@ public class PHPCsFixerBuilder extends Builder {
      * Also add the user parameters
      *
      * @param args
-     * @param output
+     * @param launcher
+     * @param env
      * @throws InterruptedException
      * @throws IOException
      */
-    private void prepareCommand(ArgumentListBuilder args, ByteArrayOutputStream2 output) throws InterruptedException, IOException {
+    private void prepareCommand(ArgumentListBuilder args, Launcher launcher, EnvVars env) throws InterruptedException, IOException {
+        ByteArrayOutputStream2 output =new ByteArrayOutputStream2();
         String scriptPath = getDescriptor().getFixerPath();
         if (scriptPath.isEmpty()) {
             //download
-            runCommand("wget http://get.sensiolabs.org/php-cs-fixer.phar -O php-cs-fixer", output);
+            runCommand("wget http://get.sensiolabs.org/php-cs-fixer.phar -O php-cs-fixer", launcher, env, output);
             args.addTokenized("php");
             args.addTokenized("php-cs-fixer");
 
@@ -146,7 +151,7 @@ public class PHPCsFixerBuilder extends Builder {
      * @throws InterruptedException
      * @throws IOException
      */
-    private ArrayList<String> getListOfPHPFiles() throws InterruptedException, IOException {
+    private ArrayList<String> getListOfPHPFiles(Launcher launcher, EnvVars env) throws InterruptedException, IOException {
         ArrayList<String> phpFiles = new ArrayList<String>();
         ByteArrayOutputStream2 output = new ByteArrayOutputStream2();
         ArgumentListBuilder args = new ArgumentListBuilder();
@@ -157,20 +162,20 @@ public class PHPCsFixerBuilder extends Builder {
                 .add("diff")
                 .add("--stat");
 
-        String lastSuccessfulCommit = environment.get("GIT_PREVIOUS_SUCCESSFUL_COMMIT");
+        String lastSuccessfulCommit = env.get("GIT_PREVIOUS_SUCCESSFUL_COMMIT");
         if (lastSuccessfulCommit != null){
-            if (lastSuccessfulCommit.equals(environment.get("GIT_COMMIT"))) {
+            if (lastSuccessfulCommit.equals(env.get("GIT_COMMIT"))) {
                 //if nothing updated.. everything is fine
                 return phpFiles;
             }
 
             args.add(lastSuccessfulCommit);
         } else {
-            args.add(environment.get("GIT_PREVIOUS_COMMIT"));
+            args.add(env.get("GIT_PREVIOUS_COMMIT"));
         }
-        args.add(environment.get("GIT_COMMIT"));
+        args.add(env.get("GIT_COMMIT"));
 
-        runCommand(args, output);
+        runCommand(args, launcher, env, output);
         String lines[] = output.toString().split("\\r?\\n");
 
         // everything but last line
@@ -181,7 +186,7 @@ public class PHPCsFixerBuilder extends Builder {
                 continue;
 
             //check if file exists
-            if (!(new File(environment.get("WORKSPACE")+"/"+file).exists())) {
+            if (!(new File(env.get("WORKSPACE")+"/"+file).exists())) {
                 continue;
             }
 
@@ -194,12 +199,14 @@ public class PHPCsFixerBuilder extends Builder {
     /**
      *
      * @param cmd
+     * @param launcher
+     * @param environment
      * @param output
-     * @return int
+     * @return
      * @throws InterruptedException
      * @throws IOException
      */
-    private int runCommand(String cmd, OutputStream output)
+    private int runCommand(String cmd, Launcher launcher, EnvVars environment, OutputStream output)
             throws InterruptedException, IOException
     {
         return launcher.launch().cmds(new ArgumentListBuilder().addTokenized(cmd)).envs(environment).stdout(output).pwd(workingDir).join();
@@ -208,12 +215,14 @@ public class PHPCsFixerBuilder extends Builder {
     /**
      *
      * @param argumentList
+     * @param launcher
+     * @param environment
      * @param output
-     * @return int
+     * @return
      * @throws InterruptedException
      * @throws IOException
      */
-    private int runCommand(ArgumentListBuilder argumentList, OutputStream output)
+    private int runCommand(ArgumentListBuilder argumentList, Launcher launcher, EnvVars environment, OutputStream output)
             throws InterruptedException, IOException
     {
         return launcher.launch().cmds(argumentList).envs(environment).stdout(output).pwd(workingDir).join();
