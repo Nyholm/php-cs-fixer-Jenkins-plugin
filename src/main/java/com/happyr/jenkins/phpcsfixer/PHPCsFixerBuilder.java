@@ -1,39 +1,40 @@
 package com.happyr.jenkins.phpcsfixer;
+
 import com.happyr.jenkins.phpcsfixer.console.ConsoleAnnotator;
 import hudson.*;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.model.BuildListener;
 import hudson.model.Result;
+import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.ByteArrayOutputStream2;
 import hudson.util.FormValidation;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
-import hudson.model.AbstractProject;
-import hudson.tasks.Builder;
-import hudson.tasks.BuildStepDescriptor;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
 import javax.servlet.ServletException;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.io.File;
 
 
 /**
  * Sample {@link Builder}.
- *
- * <p>
+ * <p/>
+ * <p/>
  * When the user configures the project and enables this builder,
  * {@link DescriptorImpl#newInstance(StaplerRequest)} is invoked
  * and a new {@link PHPCsFixerBuilder} is created. The created
  * instance is persisted to the project configuration XML by using
  * XStream, so this allows you to use instance fields (like {@link #name})
  * to remember the configuration.
- *
- * <p>
+ * <p/>
+ * <p/>
  * When a build is performed, the {@link #perform(AbstractBuild, Launcher, BuildListener)}
  * method will be invoked.
  *
@@ -58,7 +59,7 @@ public class PHPCsFixerBuilder extends Builder {
     }
 
     public String getProjectParameters() {
-        if (projectParameters==null)
+        if (projectParameters == null)
             return new String();
         return projectParameters;
     }
@@ -69,7 +70,7 @@ public class PHPCsFixerBuilder extends Builder {
         ArgumentListBuilder args = new ArgumentListBuilder();
         EnvVars env = build.getEnvironment(listener);
         workingDir = build.getModuleRoot();
-        ByteArrayOutputStream2 output =new ByteArrayOutputStream2();
+        ByteArrayOutputStream2 output = new ByteArrayOutputStream2();
 
         //prepare the arguments for running the command
         prepareCommand(args, launcher, env);
@@ -83,7 +84,7 @@ public class PHPCsFixerBuilder extends Builder {
                 ArgumentListBuilder singleFileArgs;
 
                 // for each changed file
-                for (String file: files) {
+                for (String file : files) {
 
                     singleFileArgs = args.clone();
                     singleFileArgs.add(file);
@@ -98,7 +99,7 @@ public class PHPCsFixerBuilder extends Builder {
 
             } finally {
                 final long processingTime = System.currentTimeMillis() - startTime;
-                listener.getLogger().println(String.format("Finished php-cs-fixer in %.2f seconds", (double) processingTime/1000));
+                listener.getLogger().println(String.format("Finished php-cs-fixer in %.2f seconds", (double) processingTime / 1000));
 
                 console.forceEol();
             }
@@ -115,7 +116,7 @@ public class PHPCsFixerBuilder extends Builder {
 
     /**
      * Prepare the command. Download php-cs-fixer if we need to.
-     *
+     * <p/>
      * Also add the user parameters
      *
      * @param args
@@ -125,7 +126,7 @@ public class PHPCsFixerBuilder extends Builder {
      * @throws IOException
      */
     private void prepareCommand(ArgumentListBuilder args, Launcher launcher, EnvVars env) throws InterruptedException, IOException {
-        ByteArrayOutputStream2 output =new ByteArrayOutputStream2();
+        ByteArrayOutputStream2 output = new ByteArrayOutputStream2();
         String scriptPath = getDescriptor().getFixerPath();
         if (scriptPath.isEmpty()) {
             //download
@@ -147,6 +148,7 @@ public class PHPCsFixerBuilder extends Builder {
 
     /**
      * Get a list of the file changed since last commit or since last successful build
+     *
      * @return
      * @throws InterruptedException
      * @throws IOException
@@ -163,7 +165,7 @@ public class PHPCsFixerBuilder extends Builder {
                 .add("--stat");
 
         String lastSuccessfulCommit = env.get("GIT_PREVIOUS_SUCCESSFUL_COMMIT");
-        if (lastSuccessfulCommit != null){
+        if (lastSuccessfulCommit != null) {
             if (lastSuccessfulCommit.equals(env.get("GIT_COMMIT"))) {
                 //if nothing updated.. everything is fine
                 return phpFiles;
@@ -186,7 +188,7 @@ public class PHPCsFixerBuilder extends Builder {
                 continue;
 
             //check if file exists
-            if (!(new File(env.get("WORKSPACE")+"/"+file).exists())) {
+            if (!(new File(env.get("WORKSPACE") + "/" + file).exists())) {
                 continue;
             }
 
@@ -197,7 +199,6 @@ public class PHPCsFixerBuilder extends Builder {
     }
 
     /**
-     *
      * @param cmd
      * @param launcher
      * @param environment
@@ -207,13 +208,11 @@ public class PHPCsFixerBuilder extends Builder {
      * @throws IOException
      */
     private int runCommand(String cmd, Launcher launcher, EnvVars environment, OutputStream output)
-            throws InterruptedException, IOException
-    {
+            throws InterruptedException, IOException {
         return launcher.launch().cmds(new ArgumentListBuilder().addTokenized(cmd)).envs(environment).stdout(output).pwd(workingDir).join();
     }
 
     /**
-     *
      * @param argumentList
      * @param launcher
      * @param environment
@@ -223,12 +222,9 @@ public class PHPCsFixerBuilder extends Builder {
      * @throws IOException
      */
     private int runCommand(ArgumentListBuilder argumentList, Launcher launcher, EnvVars environment, OutputStream output)
-            throws InterruptedException, IOException
-    {
+            throws InterruptedException, IOException {
         return launcher.launch().cmds(argumentList).envs(environment).stdout(output).pwd(workingDir).join();
     }
-
-
 
 
     // Overridden for better type safety.
@@ -242,8 +238,8 @@ public class PHPCsFixerBuilder extends Builder {
     /**
      * Descriptor for {@link PHPCsFixerBuilder}. Used as a singleton.
      * The class is marked as public so that it can be accessed from views.
-     *
-     * <p>
+     * <p/>
+     * <p/>
      * See <tt>src/main/resources/hudson/plugins/hello_world/PHPCsFixerBuilder/*.jelly</tt>
      * for the actual HTML fragment for the configuration screen.
      */
@@ -252,8 +248,8 @@ public class PHPCsFixerBuilder extends Builder {
         /**
          * To persist global configuration information,
          * simply store it in a field and call save().
-         *
-         * <p>
+         * <p/>
+         * <p/>
          * If you don't want fields to be persisted, use <tt>transient</tt>.
          */
         private String fixerPath;
@@ -270,14 +266,12 @@ public class PHPCsFixerBuilder extends Builder {
         /**
          * Performs on-the-fly validation of the form field 'name'.
          *
-         * @param value
-         *      This parameter receives the value that the user has typed.
-         * @return
-         *      Indicates the outcome of the validation. This is sent to the browser.
-         *      <p>
-         *      Note that returning {@link FormValidation#error(String)} does not
-         *      prevent the form from being saved. It just means that a message
-         *      will be displayed to the user.
+         * @param value This parameter receives the value that the user has typed.
+         * @return Indicates the outcome of the validation. This is sent to the browser.
+         * <p/>
+         * Note that returning {@link FormValidation#error(String)} does not
+         * prevent the form from being saved. It just means that a message
+         * will be displayed to the user.
          */
         public FormValidation doCheckName(@QueryParameter String value)
                 throws IOException, ServletException {
@@ -313,18 +307,19 @@ public class PHPCsFixerBuilder extends Builder {
             // ^Can also use req.bindJSON(this, formData);
             //  (easier when there are many fields; need set* methods for this, like setUseFrench)
             save();
-            return super.configure(req,formData);
+            return super.configure(req, formData);
         }
 
 
         public String getParameters() {
-            if (parameters==null)
+            if (parameters == null)
                 return new String();
 
             return parameters;
         }
+
         public String getFixerPath() {
-            if (fixerPath==null)
+            if (fixerPath == null)
                 return new String();
             return fixerPath;
         }
