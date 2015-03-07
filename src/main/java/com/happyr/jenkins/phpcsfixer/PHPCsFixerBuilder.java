@@ -70,7 +70,6 @@ public class PHPCsFixerBuilder extends Builder {
         ArgumentListBuilder args = new ArgumentListBuilder();
         EnvVars env = build.getEnvironment(listener);
         workingDir = build.getModuleRoot();
-        ByteArrayOutputStream2 output = new ByteArrayOutputStream2();
 
         //prepare the arguments for running the command
         prepareCommand(args, launcher, env);
@@ -162,7 +161,8 @@ public class PHPCsFixerBuilder extends Builder {
         args
                 .add("git")
                 .add("diff")
-                .add("--stat");
+                        // make sure git does not cut the path to the file (=1000)
+                .add("--stat=1000");
 
         String lastSuccessfulCommit = env.get("GIT_PREVIOUS_SUCCESSFUL_COMMIT");
         if (lastSuccessfulCommit != null) {
