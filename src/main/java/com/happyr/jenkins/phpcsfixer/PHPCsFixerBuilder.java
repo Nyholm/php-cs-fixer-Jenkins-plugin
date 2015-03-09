@@ -91,7 +91,7 @@ public class PHPCsFixerBuilder extends Builder {
                     result = runCommand(singleFileArgs, launcher, env, console);
 
                     if (result != 0) {
-                        listener.finished(Result.ABORTED);
+                        listener.finished(Result.FAILURE);
                         return false;
                     }
                 }
